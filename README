@@ -1,0 +1,36 @@
+
+                       "Linux interface rate monitor"
+
+  For install, read the file "INSTALL"
+
+  This is a "Hello word" clone. Please read copyright papers from "Kernigam
+& Ritchie" ! Just kidding ...
+  
+  This is a simple program who read from /proc/net/dev and write some
+real-time statistics about the trafic on interfaces. 
+  You can use it free (and without waranties), i hope you will find it usefull
+and you will use it only for moral .
+
+  Known bugs: - some interface drivers have bugs in the update of the counter,
+		not my fault...
+	      - some drivers have time counters updated at more than 1 second
+		interval, to have exact averages you must set an interval 
+		much bigger than this interval (example: "./if_rate 10")
+
+
+  Updates:
+  2.0.0 
+	- the rate is more accured, now I use gettimeofday() for exact time
+	measuring.
+	- more space for gigabit counters
+	- accept argument - number of seconds between counters is settable
+
+  Updates may be found ar http://mihvoi.rdsnet.ro/work/
+  I did not tested the program very well, please send bugs, sugestions to:
+
+  Mihai Voicu
+  mihvoi@rdsnet.ro
+  http://mihvoi.rdsnet.ro
+
+
+
