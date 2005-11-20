@@ -1,8 +1,9 @@
 
 /*
- version 2.0.1wt
+ version 2.0.2wt
  by mihvoi@rdsnet.ro
  first-level cleanups, timer fixes and few enhancements by willy tarreau.
+ 2005/11/20: addition of interface selection and logging output by w.t.
 */
 
 
@@ -27,6 +28,17 @@
 
 unsigned long long int md_get_msec_time(void);
 
+/* string formats : [0]=!arg_log, [1]=arg_log */
+const char *ifname_str[2]={"| %-8s", " "};
+const char *kbps_str[2]={"|%7lu.%1d kbps", "%lu.%1d "};
+const char *pkts_str[2]={"|%7lu.%1d pk/s|", "%lu.%1d "};
+
+void usage()
+{
+    fprintf(stderr, "Usage: if_rate [-l] [ -i ifname ]* [interval_in_seconds] (1..60, default 3)\n");
+    exit(1);
+}
+
 int main(int argc, char **argv)
 {
     unsigned long long int time_start;
@@ -38,6 +50,8 @@ int main(int argc, char **argv)
     char *fis_dev = "/proc/net/dev";
     char *p;
     char *p_supp;
+    char *if_list = NULL;
+    int arg_log = 0;
     FILE *f;
 
     unsigned long int counteri[MAX_NR_INTERFETE][MAX_NR_COUNTERI];
@@ -46,25 +60,60 @@ int main(int argc, char **argv)
     unsigned long int tmp_uint;
     char buff[MAX_LINE_FIS_PROC_SIZE + 1];	//  +1 pentru '\0'
 
+    interval_secs = 0;
+    argv++; argc--;
 
-    if (argv[1] == NULL) {
-	interval_secs = 0;
-    } else {
-	interval_secs = atoi(argv[1]);
-	if (interval_secs == 0) {
-	    printf("Usage: if_rate [interval_in_seconds] (1..60, default 3)\n");
-	    exit(1);
-	}
+    while (argc > 0) {
+	if (argv[0][0] == '-' && argv[0][1] != '-') {
+	    switch (argv[0][1]) {
+	    case 'l':
+		arg_log = 1;
+		break;
+	    case 'i': {
+		int if_name_size;
+
+		if (argc < 2)
+		    usage();
+
+		argv++; argc--;
+		if_name_size = strlen(argv[0]);
+		if (if_list) {
+		    /* add 'ifname,' to the string */
+		    if_list = realloc(if_list, strlen(if_list)+1+if_name_size+1);
+		    sprintf(if_list + strlen(if_list), "%s,", argv[0]);
+		}
+		else {
+		    /* start the string with ',ifname,' */
+		    if_list = malloc(if_name_size + 3);
+		    sprintf(if_list, ",%s,", argv[0]);
+		}
+		break;
+	    } /* case 'i' */
+	    default:
+		usage();
+	    } /* switch */
+	} else if (argv[0][0] == '-') {
+	    argc--;
+	    argv++;
+	    break;
+	} else
+	    break;
+	argc--;
+	argv++;
     }
 
-    if ((interval_secs <= 0) || (interval_secs > 60)) {
+    /* arg does not start with '-' */
+    if (argc > 0) {
+	interval_secs = atoi(argv[0]);
+	if (interval_secs <= 0 || interval_secs > 60)
+	    usage();
+    } else {
 	interval_secs = DEFAULT_NR_SEC_MONITORIZARE;
-	printf("Assuming intervar of %d seconds\n", interval_secs);
     }
 
     f = fopen(fis_dev, "r");
     if (f == NULL) {
-	printf("Can not open file:\"%s\"", fis_dev);
+	fprintf(stderr, "Can not open file:\"%s\"", fis_dev);
 	exit(1);
     }
     prima_oara = 1;
@@ -72,22 +121,33 @@ int main(int argc, char **argv)
     time_start = 0;		//N-ar trebui sa conteze
     while (1) {
 	time_stop = md_get_msec_time();
-	printf("\e[H\e[J"); //system("clear");
 	interval_msecs = time_stop - time_start;
-	if (!prima_oara) {
-	    printf("Averages for the last %d msec\n", interval_msecs);
-	} else {
-	    printf("Calculating rates for %d seconds...\n", interval_secs);
-	}
 
-	printf("+----------------------------------------------------------------------+\n");
-	printf("| %-7s |%-29s |%-29s|\n", "IF", "Input", "Output");
-	printf("+----------------------------------------------------------------------+\n");
+	if (arg_log) {
+	    if (prima_oara)
+		printf("#   time   ");
+	    else
+		printf("%10lu", (unsigned long)(time_stop / 1000ULL));
+	} else {
+	    printf("\e[H\e[J"); //system("clear");
+	    if (!prima_oara) {
+		printf("Averages for the last %d msec\n", interval_msecs);
+	    } else {
+		printf("Calculating rates for %d seconds...\n", interval_secs);
+	    }
+
+	    printf("+----------------------------------------------------------------------+\n");
+	    printf("| %-7s |%-29s |%-29s|\n", "IF", "Input", "Output");
+	    printf("+----------------------------------------------------------------------+\n");
+	}
 	nr_crt = -1;
 
 	while (nr_crt < MAX_NR_INTERFETE - 2) {
+	    char search_name[32];
+	    char *p1;
+
 	    nr_crt++;
-	    p = fgets(buff, MAX_LINE_FIS_PROC_SIZE, f);
+	    p1 = p = fgets(buff, MAX_LINE_FIS_PROC_SIZE, f);
 	    if (p == NULL)
 		break;
 
@@ -95,49 +155,69 @@ int main(int argc, char **argv)
 	    if (p == NULL)
 		continue;
 
-	    *p = '\0';
-	    p++;
+	    *p++ = '\0';
+	    while (p1 < p && (*p1 == ' ' || *p1 == '\t'))
+		p1++;
+
+	    /* the user has selected only some interfaces, let's check */
+	    if (if_list && *if_list != 0) {
+		snprintf(search_name, sizeof(search_name)-1, ",%s,", p1);
+		search_name[sizeof(search_name)-1]=0;
+		// printf("if_list=<%s>, search_name=<%s>\n",if_list, search_name);
+		if (strstr(if_list, search_name) == NULL)
+		    continue;
+	    }
+
 	    i = -1;
-	    printf("|%-8s ", buff);
+
+	    if (prima_oara)
+		printf("%s:{ikb ipk okb opk} ", p1);
+	    else
+		printf(ifname_str[arg_log], p1);
+
 	    p = strtok(p, SEPARATORI);
 
 	    while (p != NULL) {
 		i++;
-		if (i > MAX_NR_COUNTERI) {
-		    printf("Reached MAX_NR_COUNTERI=%d\n", MAX_NR_COUNTERI);
-		    exit(0);
-		}
+		if (i > MAX_NR_COUNTERI)
+		    break;
+
 		tmp_uint = strtoul(p, &p_supp, 10);
 		if (p_supp == NULL) {
-		    printf("Invalid format for number argument :\"%s\"\n", p);
-		    exit(1);
+		    /* fprintf(stderr, "Invalid format for number argument :\"%s\"\n", p); */
+		    break;
 		}
+
 		counteri[nr_crt][i] = tmp_uint;
 
 		if (!prima_oara) {
 		    if (i == 0 || i == 8)	//bytes
-			printf("|%7lu.%1d kbps",
+			printf(kbps_str[arg_log],
 				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 8 / interval_msecs,	//mihvoi : de facut sa ia timpul in milisecunde
 				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 80 / interval_msecs % 10);
 		    if (i == 1 || i == 9)	//pachet
-			printf("|%7lu.%1d pk/s|",
+			printf(pkts_str[arg_log],
 				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 1000 / interval_msecs,
 				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 1000 / interval_msecs % 10);
 		}
 		counteri_anterior[nr_crt][i] = counteri[nr_crt][i];
 		p = strtok(NULL, SEPARATORI);
 	    }
-	    printf("\n");
+	    if (!arg_log)
+		printf("\n");
 	}
 	if (fseek(f, 0, SEEK_SET) != 0) {
-	    printf("Can not fseek to the start of the file %s\n", fis_dev);
+	    fprintf(stderr, "Can not fseek to the start of the file %s\n", fis_dev);
 	    exit(1);
 	}
 
 	if (prima_oara)
 	    prima_oara = 0;
 
-	printf("+----------------------------------------------------------------------+\n");
+	if (!arg_log)
+	    printf("+----------------------------------------------------------------------+\n");
+	else
+	    putchar('\n');
 	
         time_start = md_get_msec_time();
 	if (time_start >= time_stop + interval_secs * 1000)
@@ -152,12 +232,7 @@ int main(int argc, char **argv)
 unsigned long long int md_get_msec_time(void)
 {
     struct timeval tv;
-    struct timezone tz;
-    tz.tz_dsttime = 0;
-    tz.tz_minuteswest = 0;
-    gettimeofday(&tv, &tz);
-    //printf("Sec:%ld\n",tv.tv_sec);
-    //printf("%lu\n",tv.tv_sec*1000000+tv.tv_usec);
-    return (tv.tv_sec * 1000 + (tv.tv_usec) / 1000);
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000ULL + (tv.tv_usec) / 1000ULL);
 }
 
