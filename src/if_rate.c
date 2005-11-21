@@ -1,6 +1,6 @@
 
 /*
- version 2.0.2wt
+ version 2.0.3wt
  by mihvoi@rdsnet.ro
  first-level cleanups, timer fixes and few enhancements by willy tarreau.
  2005/11/20: addition of interface selection and logging output by w.t.
@@ -170,8 +170,8 @@ int main(int argc, char **argv)
 
 	    i = -1;
 
-	    if (prima_oara)
-		printf("%s:{ikb ipk okb opk} ", p1);
+	    if (prima_oara && arg_log)
+		printf("%s(ikb ipk okb opk) ", p1);
 	    else
 		printf(ifname_str[arg_log], p1);
 
