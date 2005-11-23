@@ -1,6 +1,6 @@
 
 /*
- version 2.0.3wt
+ version 2.0.4wt
  by mihvoi@rdsnet.ro
  first-level cleanups, timer fixes and few enhancements by willy tarreau.
  2005/11/20: addition of interface selection and logging output by w.t.
@@ -216,8 +216,10 @@ int main(int argc, char **argv)
 
 	if (!arg_log)
 	    printf("+----------------------------------------------------------------------+\n");
-	else
+	else {
 	    putchar('\n');
+	    fflush(stdout);
+	}
 	
         time_start = md_get_msec_time();
 	if (time_start >= time_stop + interval_secs * 1000)
