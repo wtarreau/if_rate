@@ -1,6 +1,6 @@
 
 /*
- version 2.0.4wt
+ version 2.0.5wt
  by mihvoi@rdsnet.ro
  first-level cleanups, timer fixes and few enhancements by willy tarreau.
  2005/11/20: addition of interface selection and logging output by w.t.
@@ -30,8 +30,8 @@ unsigned long long int md_get_msec_time(void);
 
 /* string formats : [0]=!arg_log, [1]=arg_log */
 const char *ifname_str[2]={"| %-8s", " "};
-const char *kbps_str[2]={"|%7lu.%1d kbps", "%lu.%1d "};
-const char *pkts_str[2]={"|%7lu.%1d pk/s|", "%lu.%1d "};
+const char *kbps_str[2]={"|%7llu.%1llu kbps", "%llu.%1llu "};
+const char *pkts_str[2]={"|%7llu.%1llu pk/s|", "%llu.%1llu "};
 
 void usage()
 {
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 {
     unsigned long long int time_start;
     unsigned long long int time_stop;
-    int interval_msecs;
+    long long int interval_msecs;
     int nr_crt, prima_oara, i;
     int interval_secs;
     int duration;
@@ -54,10 +54,10 @@ int main(int argc, char **argv)
     int arg_log = 0;
     FILE *f;
 
-    unsigned long int counteri[MAX_NR_INTERFETE][MAX_NR_COUNTERI];
-    unsigned long int counteri_anterior[MAX_NR_INTERFETE][MAX_NR_COUNTERI];
+    unsigned long long int counteri[MAX_NR_INTERFETE][MAX_NR_COUNTERI];
+    unsigned long long int counteri_anterior[MAX_NR_INTERFETE][MAX_NR_COUNTERI];
 
-    unsigned long int tmp_uint;
+    unsigned long long int tmp_uint;
     char buff[MAX_LINE_FIS_PROC_SIZE + 1];	//  +1 pentru '\0'
 
     interval_secs = 0;
@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 	} else {
 	    printf("\e[H\e[J"); //system("clear");
 	    if (!prima_oara) {
-		printf("Averages for the last %d msec\n", interval_msecs);
+		printf("Averages for the last %lld msec\n", interval_msecs);
 	    } else {
 		printf("Calculating rates for %d seconds...\n", interval_secs);
 	    }
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
 		if (i > MAX_NR_COUNTERI)
 		    break;
 
-		tmp_uint = strtoul(p, &p_supp, 10);
+		tmp_uint = strtoull(p, &p_supp, 10);
 		if (p_supp == NULL) {
 		    /* fprintf(stderr, "Invalid format for number argument :\"%s\"\n", p); */
 		    break;
