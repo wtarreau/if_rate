@@ -1,6 +1,6 @@
 
 /*
- version 2.0.5wt
+ version 2.0.6wt
  by mihvoi@rdsnet.ro
  first-level cleanups, timer fixes and few enhancements by willy tarreau.
  2005/11/20: addition of interface selection and logging output by w.t.
@@ -191,14 +191,23 @@ int main(int argc, char **argv)
 		counteri[nr_crt][i] = tmp_uint;
 
 		if (!prima_oara) {
+		    unsigned long long delta;
+		    if (counteri[nr_crt][i] >= counteri_anterior[nr_crt][i] || counteri_anterior[nr_crt][i] >= (1ULL<<32)) {
+			    /* non-wrap or 64-bit wrap */
+			    delta = counteri[nr_crt][i] - counteri_anterior[nr_crt][i];
+		    } else {
+			    /* 32-bit wrap-around */
+			    delta = (1ULL<<32) + counteri[nr_crt][i] - counteri_anterior[nr_crt][i];
+		    }
+
 		    if (i == 0 || i == 8)	//bytes
 			printf(kbps_str[arg_log],
-				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 8 / interval_msecs,	//mihvoi : de facut sa ia timpul in milisecunde
-				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 80 / interval_msecs % 10);
+				delta * 8 / interval_msecs,	//mihvoi : de facut sa ia timpul in milisecunde
+				delta * 80 / interval_msecs % 10);
 		    if (i == 1 || i == 9)	//pachet
 			printf(pkts_str[arg_log],
-				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 1000 / interval_msecs,
-				(counteri[nr_crt][i] - counteri_anterior[nr_crt][i]) * 1000 / interval_msecs % 10);
+				delta * 1000 / interval_msecs,
+				delta * 1000 / interval_msecs % 10);
 		}
 		counteri_anterior[nr_crt][i] = counteri[nr_crt][i];
 		p = strtok(NULL, SEPARATORI);
