@@ -1,6 +1,6 @@
 
 /*
- version 2.0.6wt
+ version 2.0.7wt
  by mihvoi@rdsnet.ro
  first-level cleanups, timer fixes and few enhancements by willy tarreau.
  2005/11/20: addition of interface selection and logging output by w.t.
@@ -20,8 +20,7 @@
 
 
 #define MAX_LINE_FIS_PROC_SIZE 1024
-#define MAX_NR_INTERFETE 20
-#define MAX_LEN_NUME_INTERFATA 20
+#define MAX_NR_INTERFETE 100
 #define MAX_NR_COUNTERI 20
 #define SEPARATORI " \t\n\r"
 #define DEFAULT_NR_SEC_MONITORIZARE 3
